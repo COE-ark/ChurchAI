@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'" />
+<title>ChurchAI audience screen</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #000; cursor: none; overflow: hidden; }
+  #stage { height: 100%; box-sizing: border-box; padding: 6vh 7vw; display: flex; flex-direction: column;
+           justify-content: center; align-items: center; text-align: center; color: #fff;
+           font-family: "Segoe UI", system-ui, sans-serif; }
+  #body { white-space: pre-line; line-height: 1.35; text-shadow: 0 2px 8px rgba(0,0,0,.8); width: 100%; }
+  #title { margin-top: 3vh; color: #9db8ee; font-size: 3.2vw; }
+  #stage.hidden { visibility: hidden; }
+</style>
+</head>
+<body>
+<div id="stage" class="hidden"><div id="body"></div><div id="title"></div></div>
+<script src="audience.js"></script>
+</body>
+</html>

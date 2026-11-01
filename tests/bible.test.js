@@ -1,0 +1,54 @@
+const assert = require("assert");
+const fs = require("fs");
+const os = require("os");
+const path = require("path");
+const { BOOKS, parseReference, parseBibleFile } = require("../electron/bible");
+const { openStore } = require("../electron/db");
+
+assert.strictEqual(BOOKS.length, 66);
+const ref = (s) => parseReference(s);
+assert.deepStrictEqual(ref("John 3:16"), { book: 43, chapter: 3, verseStart: 16, verseEnd: 16 });
+assert.deepStrictEqual(ref("john chapter 3 verse 16"), { book: 43, chapter: 3, verseStart: 16, verseEnd: 16 });
+assert.deepStrictEqual(ref("The Gospel according to John, chapter 3, verse 16".replace(/,/g, "")), { book: 43, chapter: 3, verseStart: 16, verseEnd: 16 });
+assert.deepStrictEqual(ref("1 John 2:1-5"), { book: 62, chapter: 2, verseStart: 1, verseEnd: 5 });
+assert.deepStrictEqual(ref("first john 2:1"), { book: 62, chapter: 2, verseStart: 1, verseEnd: 1 });
+assert.deepStrictEqual(ref("Psalm 23"), { book: 19, chapter: 23, verseStart: null, verseEnd: null });
+assert.deepStrictEqual(ref("Ps 23:1-3"), { book: 19, chapter: 23, verseStart: 1, verseEnd: 3 });
+assert.deepStrictEqual(ref("Romans 8"), { book: 45, chapter: 8, verseStart: null, verseEnd: null });
+assert.deepStrictEqual(ref("gen 1:1"), { book: 1, chapter: 1, verseStart: 1, verseEnd: 1 });
+assert.deepStrictEqual(ref("Song of Solomon 2:4"), { book: 22, chapter: 2, verseStart: 4, verseEnd: 4 });
+assert.deepStrictEqual(ref("Philippians 4:13"), { book: 50, chapter: 4, verseStart: 13, verseEnd: 13 });
+assert.deepStrictEqual(ref("John"), { book: 43, chapter: null, verseStart: null, verseEnd: null });
+assert.strictEqual(ref("John 99:1"), null, "chapter out of range");
+assert.strictEqual(ref("for god so loved"), null, "plain words are not a reference");
+assert.strictEqual(ref("hello 3:4"), null);
+
+const sample = fs.readFileSync(path.join(__dirname, "../electron/data/sample-kjv.txt"), "utf8");
+const { verses, skipped } = parseBibleFile(sample);
+assert.strictEqual(verses.length, 16);
+assert.strictEqual(skipped, 0);
+const json = parseBibleFile(JSON.stringify({ verses: [{ book: "Jude", chapter: 1, verse: 3, text: "x" }, { book: "Nope", chapter: 1, verse: 1, text: "y" }] }));
+assert.strictEqual(json.verses.length, 1);
+assert.strictEqual(json.skipped, 1);
+
+const dir = fs.mkdtempSync(path.join(os.tmpdir(), "churchai-bible-"));
+const store = openStore(path.join(dir, "t.db"));
+assert.strictEqual(store.installTranslation({ id: "KJV", name: "KJV excerpt", license: "Public domain" }, verses), 16);
+assert.strictEqual(store.listTranslations()[0].verseCount, 16);
+assert.strictEqual(store.getChapter("KJV", 19, 23).length, 6);
+const v = store.getVerses("KJV", 43, 3, 16, 17);
+assert.strictEqual(v.length, 2);
+assert.ok(v[0].text.startsWith("For God so loved"));
+assert.strictEqual(store.searchVerses("KJV", "so loved world").length, 1);
+assert.strictEqual(store.searchVerses("KJV", "shepherd").length, 1);
+assert.strictEqual(store.searchVerses("KJV", "100%").length, 0, "wildcards are escaped");
+assert.strictEqual(store.searchVerses("KJV", "").length, 0);
+// reinstall replaces rather than duplicates
+store.installTranslation({ id: "KJV", name: "KJV excerpt" }, verses.slice(0, 3));
+assert.strictEqual(store.listTranslations()[0].verseCount, 3);
+store.removeTranslation("KJV");
+assert.strictEqual(store.listTranslations().length, 0);
+assert.ok(store.integrityCheck().ok);
+store.close();
+fs.rmSync(dir, { recursive: true, force: true });
+console.log("bible tests passed");
